@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import {
   BYE_NOTES,
   broncoRule,
@@ -58,10 +58,10 @@ import type { Player, Pos, Slot } from './types'
 type Page = 'overview' | 'now' | 'plan' | 'players' | 'sleepers' | 'edges' | 'late' | 'card'
 
 const PAGES: { id: Page; label: string }[] = [
-  { id: 'overview', label: 'How this league works' },
   { id: 'now', label: 'On the clock' },
-  { id: 'plan', label: 'Round plan' },
   { id: 'players', label: 'Player board' },
+  { id: 'plan', label: 'Round plan' },
+  { id: 'overview', label: 'How this league works' },
   { id: 'sleepers', label: 'Sleepers' },
   { id: 'edges', label: 'Take / avoid' },
   { id: 'late', label: 'Handcuffs and IR' },
@@ -98,6 +98,120 @@ function BrandMark() {
 const TICKER =
   'ALL GUT NO SHAFT · BRONCOS COUNTRY · THE TWO-INCH INVITATIONAL · DRAFT DAY · ALL GUT NO SHAFT · '
 
+function PlayerTable({
+  board,
+  taken,
+  mine,
+  queue,
+  query,
+  pos,
+  hideTaken,
+  onQuery,
+  onPos,
+  onHideTaken,
+  onGone,
+  onMine,
+  onQueue,
+}: {
+  board: Player[]
+  taken: Set<string>
+  mine: Set<string>
+  queue: string[]
+  query: string
+  pos: Pos | 'ALL'
+  hideTaken: boolean
+  onQuery: (q: string) => void
+  onPos: (p: Pos | 'ALL') => void
+  onHideTaken: () => void
+  onGone: (id: string) => void
+  onMine: (id: string) => void
+  onQueue: (id: string) => void
+}) {
+  const [open, setOpen] = useState<string | null>(null)
+
+  return (
+    <div className="board-wrap">
+      <div className="board-tools">
+        <input
+          className="search"
+          value={query}
+          onChange={(e) => onQuery(e.target.value)}
+          placeholder="Search a name, team, or position…"
+        />
+        <div className="pos">
+          {POS.map((p) => (
+            <button key={p} className={pos === p ? 'on' : ''} onClick={() => onPos(p)}>{p}</button>
+          ))}
+          <button className={`ghost${hideTaken ? ' on' : ''}`} onClick={onHideTaken}>
+            {hideTaken ? 'Hiding taken' : 'Showing taken'}
+          </button>
+        </div>
+      </div>
+      <div className="board-scroll">
+        <table className="board-table">
+          <thead>
+            <tr>
+              <th className="col-name">Player</th>
+              <th className="col-adp">ADP</th>
+              <th className="col-call">Call</th>
+              <th className="col-bye">Bye</th>
+              <th className="col-acts">Gone / Mine / Queue</th>
+            </tr>
+          </thead>
+          <tbody>
+            {board.map((p) => {
+              const call = callFor(p)
+              const isOpen = open === p.id
+              return (
+                <Fragment key={p.id}>
+                  <tr
+                    className={`${taken.has(p.id) ? 'gone' : ''}${mine.has(p.id) ? ' mine-row' : ''}${isOpen ? ' open' : ''}`}
+                    onClick={() => setOpen(isOpen ? null : p.id)}
+                  >
+                    <td className="col-name">
+                      <div className="who">
+                        <span className={`note-caret${isOpen ? ' up' : ''}`} aria-hidden />
+                        {p.name}
+                      </div>
+                      <div className="meta">
+                        {p.pos} · {p.team}
+                        {p.window ? ` · ${p.window}` : ''}
+                      </div>
+                    </td>
+                    <td className="col-adp">{p.espnAdp ?? '—'}</td>
+                    <td className="col-call">
+                      <span className={`call ${call.cls}`}>{call.label}</span>
+                    </td>
+                    <td className="col-bye">{p.bye ?? '—'}</td>
+                    <td className="col-acts" onClick={(e) => e.stopPropagation()}>
+                      <div className="acts">
+                        <button className={taken.has(p.id) ? 'gone-on' : ''} onClick={() => onGone(p.id)}>
+                          {taken.has(p.id) ? 'Undo' : 'Gone'}
+                        </button>
+                        <button className={mine.has(p.id) ? 'mine-on' : ''} onClick={() => onMine(p.id)}>
+                          {mine.has(p.id) ? 'Drop' : 'Mine'}
+                        </button>
+                        <button className={queue.includes(p.id) ? 'on' : ''} onClick={() => onQueue(p.id)}>
+                          {queue.includes(p.id) ? 'Queued' : 'Queue'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {isOpen && (
+                    <tr className="note-row">
+                      <td colSpan={5}>{p.note}</td>
+                    </tr>
+                  )}
+                </Fragment>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 function callFor(p: Player): { label: string; cls: string } {
   if (p.tags.includes('cross-off') || p.tags.includes('ir-dead')) {
     return { label: 'Do not draft', cls: 'call-avoid' }
@@ -115,7 +229,7 @@ function callFor(p: Player): { label: string; cls: string } {
 }
 
 export default function App() {
-  const [page, setPage] = useState<Page>('overview')
+  const [page, setPage] = useState<Page>('now')
   const [pick, setPick] = useState<number | null>(() => loadPick())
   const [slot, setSlot] = useState<Slot | null>(() => loadSlot())
   const [taken, setTaken] = useState<Set<string>>(() => loadTaken())
@@ -173,7 +287,7 @@ export default function App() {
   const pageLabel = PAGES.find((p) => p.id === page)?.label ?? ''
 
   return (
-    <div className="app">
+    <div className={`app${page === 'now' ? ' play' : ''}`}>
       <div className="atmosphere" aria-hidden="true">
         <div className="grid-floor" />
         <div className="scan" />
@@ -205,19 +319,23 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="main">
-        <div className="hud-rail">
-          <span>All Gut No Shaft</span>
-          <span className="hud-dot" />
-          <span className="dim">Broncos country</span>
-          <span className="hud-dot" />
-          <span>{league.name}</span>
-        </div>
-        <div className="page-eye">
-          <span>All Gut No Shaft</span>
-          <span className="eye-rule" />
-          <span>{pageLabel}</span>
-        </div>
+      <main className={`main${page === 'now' || page === 'players' ? ' main-wide' : ''}`}>
+        {page !== 'now' && (
+          <>
+            <div className="hud-rail">
+              <span>All Gut No Shaft</span>
+              <span className="hud-dot" />
+              <span className="dim">Broncos country</span>
+              <span className="hud-dot" />
+              <span>{league.name}</span>
+            </div>
+            <div className="page-eye">
+              <span>All Gut No Shaft</span>
+              <span className="eye-rule" />
+              <span>{pageLabel}</span>
+            </div>
+          </>
+        )}
         {page === 'overview' && (
           <>
             <h2>How this league works</h2>
@@ -263,99 +381,21 @@ export default function App() {
               ))}
             </div>
             <p className="kicker">{researchStamp}</p>
-          </>
-        )}
-
-        {page === 'now' && (
-          <>
-            <div className="toolbar">
-              <label>
-                You are in round{' '}
-                <input
-                  type="number"
-                  min={1}
-                  max={16}
-                  value={round}
-                  onChange={(e) => setRound(Number(e.target.value) || 1)}
-                />
-              </label>
-              {nextOverall != null && (
-                <span>Overall pick {nextOverall}{wait != null ? ` · ${wait} picks until you are back` : ''}</span>
-              )}
-            </div>
-            <div className="advice-box">
-              <div className="kicker">What to do with this pick</div>
-              <h2>{advice.headline}</h2>
-              <p>{advice.why}</p>
-              {advice.names.length > 0 && <p>Order: {advice.names.join(', then ')}.</p>}
-              {warns.map((w) => <p key={w} className="warn">{w}</p>)}
-            </div>
-            <div className="grid-3">
-              <div>
-                <div className="card">
-                  <div className="kicker">Best available (Gone already stripped)</div>
-                  {best.map((row) => (
-                    <div className="best-row" key={row.pos}>
-                      <strong>{row.pos}</strong>
-                      <span>{row.names.map((p) => p.name).join(' · ') || '—'}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="card">
-                  <div className="kicker">Queue · max 5 · star them on the player board</div>
-                  {queued.length === 0 ? (
-                    <p>Nobody queued. Star names you will take if they are there.</p>
-                  ) : (
-                    queued.map((p) => (
-                      <div className={`queue-item${taken.has(p.id) ? ' gone-line' : ''}`} key={p.id}>
-                        <span>{p.name} · {p.pos}{taken.has(p.id) ? ' · GONE' : ''}</span>
-                        <button className="ghost" onClick={() => star(p.id)}>Remove</button>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <div className="card">
-                  <div className="kicker">Your bye weeks</div>
-                  {myByes.length === 0 ? (
-                    <p>Mark Mine as you draft. Hot weeks (6, 10, 11, 14) will light up here.</p>
-                  ) : (
-                    myByes.map((b) => (
-                      <p key={b.week} className={HOT_BYES.has(b.week) ? 'hot' : undefined}>
-                        <strong>Week {b.week}</strong> — {b.names.join(', ')}
-                        {HOT_BYES.has(b.week) ? ' · nuke week' : ''}
-                      </p>
-                    ))
-                  )}
-                </div>
-                <div className="card">
-                  <div className="kicker">Your roster · {roster.filter((p) => p.pos === 'RB').length} RB</div>
-                  {roster.length === 0 ? (
-                    <p>Nobody yet. Mine is what the clock uses.</p>
-                  ) : (
-                    <ul className="roster">
-                      {roster.map((p) => (
-                        <li key={p.id}>{p.name} · {p.pos} {p.team}{p.bye ? ` · bye ${p.bye}` : ''}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+            <h3>Clock steps — read before 2:30</h3>
+            {clockExplained.map((s) => (
+              <div className="card" key={s.step}>
+                <div className="kicker">Step {s.step}</div>
+                <h3>{s.title}</h3>
+                <p>{s.body}</p>
               </div>
-              <div>
-                {clockExplained.map((s) => (
-                  <div className="card" key={s.step}>
-                    <div className="kicker">Step {s.step}</div>
-                    <h3>{s.title}</h3>
-                    <p>{s.body}</p>
-                  </div>
-                ))}
-                {positionPrimers.map((p) => (
-                  <div className="card" key={p.pos}>
-                    <h3>{p.pos}</h3>
-                    <p>{p.body}</p>
-                  </div>
-                ))}
+            ))}
+            <h3>Position primers</h3>
+            {positionPrimers.map((p) => (
+              <div className="card" key={p.pos}>
+                <h3>{p.pos}</h3>
+                <p>{p.body}</p>
               </div>
-            </div>
+            ))}
             <h3>Injury desk for tonight</h3>
             {injuryDesk.map((i) => (
               <div className="card" key={i.name}>
@@ -365,6 +405,94 @@ export default function App() {
               </div>
             ))}
           </>
+        )}
+
+        {page === 'now' && (
+          <div className="cockpit">
+            <aside className="clock-rail">
+              <div className="toolbar">
+                <label>
+                  Round{' '}
+                  <input
+                    type="number"
+                    min={1}
+                    max={16}
+                    value={round}
+                    onChange={(e) => setRound(Number(e.target.value) || 1)}
+                  />
+                </label>
+                {nextOverall != null && (
+                  <span>#{nextOverall}{wait != null ? ` · ${wait} out` : ''}</span>
+                )}
+              </div>
+              <div className="advice-box">
+                <div className="kicker">This pick</div>
+                <h2>{advice.headline}</h2>
+                <p>{advice.why}</p>
+                {advice.names.length > 0 && <p>Order: {advice.names.join(', then ')}.</p>}
+                {warns.map((w) => <p key={w} className="warn">{w}</p>)}
+              </div>
+              <div className="card">
+                <div className="kicker">Best available</div>
+                {best.map((row) => (
+                  <div className="best-row" key={row.pos}>
+                    <strong>{row.pos}</strong>
+                    <span>{row.names.map((p) => p.name).join(' · ') || '—'}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="card">
+                <div className="kicker">Queue · max 5</div>
+                {queued.length === 0 ? (
+                  <p>Queue names on the board. Take them if they are there.</p>
+                ) : (
+                  queued.map((p) => (
+                    <div className={`queue-item${taken.has(p.id) ? ' gone-line' : ''}`} key={p.id}>
+                      <span>{p.name} · {p.pos}{taken.has(p.id) ? ' · GONE' : ''}</span>
+                      <button className="ghost" onClick={() => star(p.id)}>Remove</button>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="card">
+                <div className="kicker">Your byes · {roster.filter((p) => p.pos === 'RB').length} RB</div>
+                {myByes.length === 0 ? (
+                  <p>Mark Mine. Weeks 6, 10, 11, 14 light up.</p>
+                ) : (
+                  myByes.map((b) => (
+                    <p key={b.week} className={HOT_BYES.has(b.week) ? 'hot' : undefined}>
+                      <strong>Week {b.week}</strong> — {b.names.join(', ')}
+                      {HOT_BYES.has(b.week) ? ' · nuke' : ''}
+                    </p>
+                  ))
+                )}
+                {roster.length > 0 && (
+                  <ul className="roster">
+                    {roster.map((p) => (
+                      <li key={p.id}>{p.name} · {p.pos}{p.bye ? ` · ${p.bye}` : ''}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </aside>
+            <section className="clock-board">
+              <PlayerTable
+                board={board}
+                taken={taken}
+                mine={mine}
+                queue={queue}
+                query={query}
+                pos={pos}
+                hideTaken={hideTaken}
+                onQuery={setQuery}
+                onPos={setPos}
+                onHideTaken={() => setHideTaken(!hideTaken)}
+                onGone={gone}
+                onMine={minePick}
+                onQueue={star}
+              />
+            </section>
+          </div>
         )}
 
         {page === 'plan' && (
@@ -442,50 +570,23 @@ export default function App() {
             <p className="lead">
               <strong>Gone</strong> = the room took them (script and sleepers follow this).
               <strong> Mine</strong> = you did. <strong>Queue</strong> = take him if he is there (max 5).
+              Click a row for the note.
             </p>
-            <input
-              className="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search a name, team, or position…"
+            <PlayerTable
+              board={board}
+              taken={taken}
+              mine={mine}
+              queue={queue}
+              query={query}
+              pos={pos}
+              hideTaken={hideTaken}
+              onQuery={setQuery}
+              onPos={setPos}
+              onHideTaken={() => setHideTaken(!hideTaken)}
+              onGone={gone}
+              onMine={minePick}
+              onQueue={star}
             />
-            <div className="pos">
-              {POS.map((p) => (
-                <button key={p} className={pos === p ? 'on' : ''} onClick={() => setPos(p)}>{p}</button>
-              ))}
-              <button className={`ghost${hideTaken ? ' on' : ''}`} onClick={() => setHideTaken(!hideTaken)}>
-                {hideTaken ? 'Hiding taken' : 'Showing taken'}
-              </button>
-            </div>
-            {board.map((p) => {
-              const call = callFor(p)
-              return (
-                <div key={p.id} className={`player${taken.has(p.id) ? ' gone' : ''}${mine.has(p.id) ? ' mine-row' : ''}`}>
-                  <div>
-                    <div className="who">{p.name}</div>
-                    <div className="meta">
-                      {p.pos} · {p.team}
-                      {p.bye ? ` · bye week ${p.bye}` : ''}
-                      {p.espnAdp != null ? ` · ESPN ADP ${p.espnAdp}` : ''}
-                      {p.window ? ` · ${p.window}` : ''}
-                    </div>
-                    <span className={`call ${call.cls}`}>{call.label}</span>
-                  </div>
-                  <div className="note">{p.note}</div>
-                  <div className="acts">
-                    <button className={taken.has(p.id) ? 'gone-on' : ''} onClick={() => gone(p.id)}>
-                      {taken.has(p.id) ? 'Undo gone' : 'Gone'}
-                    </button>
-                    <button className={mine.has(p.id) ? 'mine-on' : ''} onClick={() => minePick(p.id)}>
-                      {mine.has(p.id) ? 'Drop from mine' : 'Mine'}
-                    </button>
-                    <button className={queue.includes(p.id) ? 'on' : ''} onClick={() => star(p.id)}>
-                      {queue.includes(p.id) ? 'In queue' : 'Queue'}
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
           </>
         )}
 
