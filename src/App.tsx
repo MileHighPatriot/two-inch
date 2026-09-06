@@ -70,6 +70,34 @@ const PAGES: { id: Page; label: string }[] = [
 
 const POS: (Pos | 'ALL')[] = ['ALL', 'QB', 'RB', 'WR', 'TE', 'DST', 'K']
 
+function BrandMark() {
+  return (
+    <svg className="brand-svg" viewBox="0 0 80 80" aria-hidden="true">
+      <polygon
+        points="40,4 74,16 74,50 40,76 6,50 6,16"
+        fill="#0a2340"
+        stroke="#fb4f14"
+        strokeWidth="3"
+      />
+      <path d="M18 52 L40 20 L62 52 H51 L40 36 L29 52 Z" fill="#fb4f14" />
+      <text
+        x="40"
+        y="66"
+        textAnchor="middle"
+        fill="#ffffff"
+        fontSize="9"
+        fontFamily="Orbitron, sans-serif"
+        letterSpacing="1.2"
+      >
+        AGNS
+      </text>
+    </svg>
+  )
+}
+
+const TICKER =
+  'ALL GUT NO SHAFT · BRONCOS COUNTRY · THE TWO-INCH INVITATIONAL · DRAFT DAY · ALL GUT NO SHAFT · '
+
 function callFor(p: Player): { label: string; cls: string } {
   if (p.tags.includes('cross-off') || p.tags.includes('ir-dead')) {
     return { label: 'Do not draft', cls: 'call-avoid' }
@@ -142,11 +170,23 @@ export default function App() {
     setQueue(toggleQueue(queue, id))
   }
 
+  const pageLabel = PAGES.find((p) => p.id === page)?.label ?? ''
+
   return (
     <div className="app">
+      <div className="atmosphere" aria-hidden="true">
+        <div className="grid-floor" />
+        <div className="scan" />
+        <div className="vignette" />
+      </div>
       <aside className="side">
-        <div className="brand">Draft day · Sep 6</div>
-        <h1>{league.team}</h1>
+        <div className="brand-lockup">
+          <BrandMark />
+          <div>
+            <div className="brand">Draft day · Sep 6</div>
+            <h1>{league.team}</h1>
+          </div>
+        </div>
         <div className="sub">
           {league.name}<br />
           {league.strategy} · 10-team PPR
@@ -159,9 +199,25 @@ export default function App() {
             </button>
           ))}
         </nav>
+        <div className="side-stamp">
+          All Gut No Shaft
+          <span>Broncos country</span>
+        </div>
       </aside>
 
       <main className="main">
+        <div className="hud-rail">
+          <span>All Gut No Shaft</span>
+          <span className="hud-dot" />
+          <span className="dim">Broncos country</span>
+          <span className="hud-dot" />
+          <span>{league.name}</span>
+        </div>
+        <div className="page-eye">
+          <span>All Gut No Shaft</span>
+          <span className="eye-rule" />
+          <span>{pageLabel}</span>
+        </div>
         {page === 'overview' && (
           <>
             <h2>How this league works</h2>
@@ -228,7 +284,7 @@ export default function App() {
               )}
             </div>
             <div className="advice-box">
-              <div className="kicker" style={{ color: '#cbbfaa' }}>What to do with this pick</div>
+              <div className="kicker">What to do with this pick</div>
               <h2>{advice.headline}</h2>
               <p>{advice.why}</p>
               {advice.names.length > 0 && <p>Order: {advice.names.join(', then ')}.</p>}
@@ -563,6 +619,12 @@ export default function App() {
             </div>
           </>
         )}
+        <div className="ticker" aria-hidden="true">
+          <div className="ticker-track">
+            <span>{TICKER}{TICKER}</span>
+            <span>{TICKER}{TICKER}</span>
+          </div>
+        </div>
       </main>
     </div>
   )
