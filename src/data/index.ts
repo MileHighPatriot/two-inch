@@ -13,3 +13,12 @@ export {
   doNotExplained,
   clockExplained,
 } from './briefing'
+export {
+  researchStamp,
+  injuryDesk,
+  positionPrimers,
+  sleeperCards,
+  sleeperHowTo,
+  expertSplits,
+  planNotes,
+} from './research'

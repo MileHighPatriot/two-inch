@@ -10,9 +10,16 @@ import {
   irReal,
   landscape,
   league,
+  expertSplits,
+  injuryDesk,
   leagueExplained,
+  planNotes,
   players,
+  positionPrimers,
   r1Explained,
+  researchStamp,
+  sleeperCards,
+  sleeperHowTo,
   sleepers,
   tooEarly,
   tooLate,
@@ -34,13 +41,14 @@ import {
 } from './engine'
 import type { Player, Pos, Slot } from './types'
 
-type Page = 'overview' | 'now' | 'plan' | 'players' | 'edges' | 'late'
+type Page = 'overview' | 'now' | 'plan' | 'players' | 'sleepers' | 'edges' | 'late'
 
 const PAGES: { id: Page; label: string }[] = [
   { id: 'overview', label: 'How this league works' },
   { id: 'now', label: 'On the clock' },
   { id: 'plan', label: 'Round plan' },
   { id: 'players', label: 'Player board' },
+  { id: 'sleepers', label: 'Sleepers' },
   { id: 'edges', label: 'Take / avoid' },
   { id: 'late', label: 'Handcuffs and IR' },
 ]
@@ -149,6 +157,16 @@ export default function App() {
                 <p>{d.body}</p>
               </div>
             ))}
+            <div className="card">
+              <div className="kicker">Where experts disagree with each other</div>
+              {expertSplits.map((s) => (
+                <div className="edge" key={s.title}>
+                  <h3>{s.title}</h3>
+                  <p>{s.body}</p>
+                </div>
+              ))}
+            </div>
+            <p className="kicker">{researchStamp}</p>
           </>
         )}
 
@@ -199,8 +217,22 @@ export default function App() {
                     </ul>
                   )}
                 </div>
+                {positionPrimers.map((p) => (
+                  <div className="card" key={p.pos}>
+                    <h3>{p.pos}</h3>
+                    <p>{p.body}</p>
+                  </div>
+                ))}
               </div>
             </div>
+            <h3>Injury desk for tonight</h3>
+            {injuryDesk.map((i) => (
+              <div className="card" key={i.name}>
+                <div className="kicker">{i.status}</div>
+                <h3>{i.name}</h3>
+                <p>{i.body}</p>
+              </div>
+            ))}
           </>
         )}
 
@@ -211,6 +243,9 @@ export default function App() {
               Slot is unknown until 1:30 p.m. Denver. Click the range you landed in.
               Hide the other two so you cannot follow the wrong script on a two-minute clock.
             </p>
+            {planNotes.map((p) => (
+              <p key={p}>{p}</p>
+            ))}
             <div className="slot-row">
               {(['early', 'mid', 'late'] as Slot[]).map((s) => (
                 <button key={s} className={slot === s ? 'on' : ''} onClick={() => lockSlot(s)}>
@@ -285,6 +320,50 @@ export default function App() {
                 </div>
               )
             })}
+          </>
+        )}
+
+        {page === 'sleepers' && (
+          <>
+            <h2>Sleepers for this 10-team PPR draft</h2>
+            <p className="lead">
+              A sleeper here is someone ESPN is late on who can start for you in September.
+              Deep 12-team dart throws do not belong on this board.
+            </p>
+            {sleeperHowTo.map((p) => (
+              <p key={p}>{p}</p>
+            ))}
+            <h3>Take these in their window</h3>
+            {sleeperCards.filter((s) => s.tier === 'board').map((s) => (
+              <div className="card" key={s.name}>
+                <div className="kicker">{s.pos} {s.team} · ESPN {s.espnAdp ?? '—'} · {s.window}</div>
+                <h3>{s.name}</h3>
+                <p>{s.why}</p>
+                <p><strong>How to draft:</strong> {s.howToDraft}</p>
+                <p className="kicker">{s.source}</p>
+              </div>
+            ))}
+            <h3>Middle rounds — FLEX and the tight-end wait</h3>
+            {sleeperCards.filter((s) => s.tier === 'middle').map((s) => (
+              <div className="card" key={s.name}>
+                <div className="kicker">{s.pos} {s.team} · ESPN {s.espnAdp ?? '—'} · {s.window}</div>
+                <h3>{s.name}</h3>
+                <p>{s.why}</p>
+                <p><strong>How to draft:</strong> {s.howToDraft}</p>
+                <p className="kicker">{s.source}</p>
+              </div>
+            ))}
+            <h3>Last-round darts</h3>
+            {sleeperCards.filter((s) => s.tier === 'dart').map((s) => (
+              <div className="card" key={s.name}>
+                <div className="kicker">{s.pos} {s.team} · ESPN {s.espnAdp ?? '—'} · {s.window}</div>
+                <h3>{s.name}</h3>
+                <p>{s.why}</p>
+                <p><strong>How to draft:</strong> {s.howToDraft}</p>
+                <p className="kicker">{s.source}</p>
+              </div>
+            ))}
+            <p className="kicker">{researchStamp}</p>
           </>
         )}
 
