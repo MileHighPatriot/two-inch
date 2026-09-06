@@ -1,0 +1,53 @@
+/** NFL.com 2026 bye map from BOARD-2026-09-06. */
+export const BYE_BY_TEAM: Record<string, number> = {
+  CAR: 5,
+  KC: 5,
+  CIN: 6,
+  DET: 6,
+  MIA: 6,
+  MIN: 6,
+  BUF: 7,
+  CHI: 7,
+  HOU: 7,
+  JAX: 7,
+  PHI: 7,
+  WAS: 7,
+  BAL: 8,
+  NYG: 8,
+  NYJ: 8,
+  TB: 8,
+  IND: 9,
+  LAC: 9,
+  NO: 9,
+  SF: 9,
+  DEN: 10,
+  ATL: 11,
+  CLE: 11,
+  GB: 11,
+  LAR: 11,
+  NE: 11,
+  SEA: 11,
+  LV: 13,
+  TEN: 13,
+  ARI: 14,
+  DAL: 14,
+}
+
+export const BYE_NOTES = [
+  { week: 5, teams: 'CAR, KC', note: 'Thin. Fine to double.' },
+  { week: 6, teams: 'CIN, DET, MIA, MIN', note: 'Cluster. Two max from Gibbs, ARSB, Jamo, Chase, Brown, Higgins, Burrow, Achane, Jefferson. Not three.' },
+  { week: 7, teams: 'BUF, CHI, HOU, JAX, PHI, WAS', note: 'Manageable.' },
+  { week: 8, teams: 'BAL, NYG, NYJ, TB', note: 'Thin.' },
+  { week: 9, teams: 'IND, LAC, NO, SF', note: 'Thin.' },
+  { week: 10, teams: 'DEN', note: 'One Bronco skill max as core.' },
+  { week: 11, teams: 'ATL, CLE, GB, LAR, NE, SEA', note: 'Nuke. Two max from Bijan, London, Pitts, Judkins, Fannin, Lloyd/Watson/Kraft, Puka/Kyren, Evans, Maye, Price.' },
+  { week: 13, teams: 'LV, TEN', note: 'Thin.' },
+  { week: 14, teams: 'ARI, DAL', note: 'Playoff run-in. One Cowboy starter max. One Cardinal if Love/Allgeier.' },
+] as const
+
+export const BYE_NUKE = [
+  { week: 6, rule: 'Two names max from CIN/DET/MIA/MIN' },
+  { week: 10, rule: 'One Bronco skill' },
+  { week: 11, rule: 'Two max from ATL/CLE/GB/LAR/NE/SEA' },
+  { week: 14, rule: 'One Cowboy starter. One Cardinal if Love/Allgeier.' },
+] as const

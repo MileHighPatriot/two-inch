@@ -1,0 +1,5 @@
+node_modules
+dist
+.handoff.md
+*.tsbuildinfo
+.DS_Store
