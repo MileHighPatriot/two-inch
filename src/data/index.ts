@@ -13,6 +13,7 @@ export {
   doNotExplained,
   clockExplained,
 } from './briefing'
+export { clockCard } from './clockCard'
 export {
   researchStamp,
   injuryDesk,

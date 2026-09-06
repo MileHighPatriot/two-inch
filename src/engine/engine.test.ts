@@ -4,6 +4,9 @@ import { scripts } from '../data/scripts'
 import { searchPlayers } from './search'
 import { onTheClock } from './clock'
 import { warningsFor } from './warnings'
+import { overallPick, picksForSlot, waitAfter, slotBand } from './snake'
+import { primaryGone, anyMentionGone } from './names'
+import { bestAvailable } from './available'
 
 describe('board data', () => {
   it('has unique player ids', () => {
@@ -71,5 +74,38 @@ describe('warnings', () => {
   it('flags Lamb + Pickens', () => {
     const w = warningsFor(['ceedee-lamb'], 'george-pickens')
     expect(w.some((x) => x.includes('Lamb'))).toBe(true)
+  })
+})
+
+describe('snake', () => {
+  it('maps pick 8 to late', () => {
+    expect(slotBand(8)).toBe('late')
+  })
+
+  it('gives pick 8 the 8 then 13 turn', () => {
+    expect(overallPick(8, 1)).toBe(8)
+    expect(overallPick(8, 2)).toBe(13)
+    expect(picksForSlot(1)[0]).toBe(1)
+    expect(picksForSlot(1)[1]).toBe(20)
+  })
+
+  it('counts the wait after an early pick', () => {
+    expect(waitAfter(1, 1)).toBe(18)
+    expect(waitAfter(10, 1)).toBe(0)
+  })
+})
+
+describe('gone sync', () => {
+  it('sees Chase Brown gone on a script line', () => {
+    expect(primaryGone('Chase Brown', new Set(['chase-brown']))).toBe(true)
+    expect(anyMentionGone('MarShawn Lloyd', new Set(['marshawn-lloyd']))).toBe(true)
+  })
+})
+
+describe('best available', () => {
+  it('skips crossed-off Jacobs', () => {
+    const rbs = bestAvailable(players, new Set(), 'RB', 20)
+    expect(rbs.some((p) => p.id === 'josh-jacobs')).toBe(false)
+    expect(rbs[0].id).toBe('jahmyr-gibbs')
   })
 })

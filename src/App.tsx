@@ -2,18 +2,20 @@ import { useMemo, useState } from 'react'
 import {
   BYE_NOTES,
   broncoRule,
+  clockCard,
   clockExplained,
   doNotExplained,
+  expertSplits,
   fades,
   handcuffs,
+  injuryDesk,
   irDead,
   irReal,
   landscape,
   league,
-  expertSplits,
-  injuryDesk,
   leagueExplained,
   planNotes,
+  playerById,
   players,
   positionPrimers,
   r1Explained,
@@ -26,22 +28,34 @@ import {
   whyRobustRb,
 } from './data'
 import {
+  HOT_BYES,
+  anyMentionGone,
+  bestByNeed,
+  byesFromRoster,
   clockStateFromMine,
   draftMine,
   loadMine,
+  loadPick,
+  loadQueue,
   loadSlot,
   loadTaken,
   onTheClock,
+  picksForSlot,
+  primaryGone,
   rosterOf,
+  savePick,
   saveSlot,
   scriptFor,
   searchPlayers,
+  slotFromPick,
+  toggleQueue,
   toggleTaken,
+  waitAfter,
   warningsFor,
 } from './engine'
 import type { Player, Pos, Slot } from './types'
 
-type Page = 'overview' | 'now' | 'plan' | 'players' | 'sleepers' | 'edges' | 'late'
+type Page = 'overview' | 'now' | 'plan' | 'players' | 'sleepers' | 'edges' | 'late' | 'card'
 
 const PAGES: { id: Page; label: string }[] = [
   { id: 'overview', label: 'How this league works' },
@@ -51,6 +65,7 @@ const PAGES: { id: Page; label: string }[] = [
   { id: 'sleepers', label: 'Sleepers' },
   { id: 'edges', label: 'Take / avoid' },
   { id: 'late', label: 'Handcuffs and IR' },
+  { id: 'card', label: 'Printable clock card' },
 ]
 
 const POS: (Pos | 'ALL')[] = ['ALL', 'QB', 'RB', 'WR', 'TE', 'DST', 'K']
@@ -73,9 +88,11 @@ function callFor(p: Player): { label: string; cls: string } {
 
 export default function App() {
   const [page, setPage] = useState<Page>('overview')
+  const [pick, setPick] = useState<number | null>(() => loadPick())
   const [slot, setSlot] = useState<Slot | null>(() => loadSlot())
   const [taken, setTaken] = useState<Set<string>>(() => loadTaken())
   const [mine, setMine] = useState<Set<string>>(() => loadMine())
+  const [queue, setQueue] = useState<string[]>(() => loadQueue())
   const [query, setQuery] = useState('')
   const [pos, setPos] = useState<Pos | 'ALL'>('ALL')
   const [hideTaken, setHideTaken] = useState(true)
@@ -89,10 +106,25 @@ export default function App() {
     () => searchPlayers(players, query, { pos, hideTaken, taken }),
     [query, pos, hideTaken, taken],
   )
+  const best = useMemo(() => bestByNeed(players, taken), [taken])
+  const myByes = byesFromRoster(roster)
+  const myPicks = pick ? picksForSlot(pick) : []
+  const nextOverall = pick ? myPicks[round - 1] : null
+  const wait = pick ? waitAfter(pick, round) : null
+  const queued = queue.map((id) => playerById(id)).filter((p): p is Player => Boolean(p))
 
-  function lockSlot(next: Slot) {
+  function lockBand(next: Slot) {
     saveSlot(next)
     setSlot(next)
+    setPage('plan')
+  }
+
+  function lockPick(n: number) {
+    savePick(n)
+    const band = slotFromPick(n)
+    saveSlot(band)
+    setPick(n)
+    setSlot(band)
     setPage('plan')
   }
 
@@ -106,12 +138,20 @@ export default function App() {
     setMine(next.mine)
   }
 
+  function star(id: string) {
+    setQueue(toggleQueue(queue, id))
+  }
+
   return (
     <div className="app">
       <aside className="side">
         <div className="brand">Draft day · Sep 6</div>
         <h1>{league.team}</h1>
-        <div className="sub">{league.name}<br />{league.strategy} · 10-team PPR</div>
+        <div className="sub">
+          {league.name}<br />
+          {league.strategy} · 10-team PPR
+          {pick ? <><br />You are pick {pick} ({slot})</> : null}
+        </div>
         <nav>
           {PAGES.map((p) => (
             <button key={p.id} className={page === p.id ? 'on' : ''} onClick={() => setPage(p.id)}>
@@ -127,7 +167,7 @@ export default function App() {
             <h2>How this league works</h2>
             <p className="lead">
               Maren’s board is for this room, not a national article. Read this once before 2:30.
-              When the slot drops at 1:30, lock Early, Mid, or Late on Round plan.
+              When the slot drops at 1:30, lock your exact pick on Round plan.
             </p>
             <div className="card prose">
               <div className="kicker">The settings</div>
@@ -183,9 +223,9 @@ export default function App() {
                   onChange={(e) => setRound(Number(e.target.value) || 1)}
                 />
               </label>
-              <span className="kicker" style={{ color: 'inherit' }}>
-                {roster.filter((p) => p.pos === 'RB').length} RB on your roster
-              </span>
+              {nextOverall != null && (
+                <span>Overall pick {nextOverall}{wait != null ? ` · ${wait} picks until you are back` : ''}</span>
+              )}
             </div>
             <div className="advice-box">
               <div className="kicker" style={{ color: '#cbbfaa' }}>What to do with this pick</div>
@@ -196,6 +236,55 @@ export default function App() {
             </div>
             <div className="grid-3">
               <div>
+                <div className="card">
+                  <div className="kicker">Best available (Gone already stripped)</div>
+                  {best.map((row) => (
+                    <div className="best-row" key={row.pos}>
+                      <strong>{row.pos}</strong>
+                      <span>{row.names.map((p) => p.name).join(' · ') || '—'}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="card">
+                  <div className="kicker">Queue · max 5 · star them on the player board</div>
+                  {queued.length === 0 ? (
+                    <p>Nobody queued. Star names you will take if they are there.</p>
+                  ) : (
+                    queued.map((p) => (
+                      <div className={`queue-item${taken.has(p.id) ? ' gone-line' : ''}`} key={p.id}>
+                        <span>{p.name} · {p.pos}{taken.has(p.id) ? ' · GONE' : ''}</span>
+                        <button className="ghost" onClick={() => star(p.id)}>Remove</button>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="card">
+                  <div className="kicker">Your bye weeks</div>
+                  {myByes.length === 0 ? (
+                    <p>Mark Mine as you draft. Hot weeks (6, 10, 11, 14) will light up here.</p>
+                  ) : (
+                    myByes.map((b) => (
+                      <p key={b.week} className={HOT_BYES.has(b.week) ? 'hot' : undefined}>
+                        <strong>Week {b.week}</strong> — {b.names.join(', ')}
+                        {HOT_BYES.has(b.week) ? ' · nuke week' : ''}
+                      </p>
+                    ))
+                  )}
+                </div>
+                <div className="card">
+                  <div className="kicker">Your roster · {roster.filter((p) => p.pos === 'RB').length} RB</div>
+                  {roster.length === 0 ? (
+                    <p>Nobody yet. Mine is what the clock uses.</p>
+                  ) : (
+                    <ul className="roster">
+                      {roster.map((p) => (
+                        <li key={p.id}>{p.name} · {p.pos} {p.team}{p.bye ? ` · bye ${p.bye}` : ''}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+              <div>
                 {clockExplained.map((s) => (
                   <div className="card" key={s.step}>
                     <div className="kicker">Step {s.step}</div>
@@ -203,20 +292,6 @@ export default function App() {
                     <p>{s.body}</p>
                   </div>
                 ))}
-              </div>
-              <div>
-                <div className="card">
-                  <div className="kicker">Your roster</div>
-                  {roster.length === 0 ? (
-                    <p>Nobody yet. Mark picks as Mine on the player board so this advice stays honest.</p>
-                  ) : (
-                    <ul className="roster">
-                      {roster.map((p) => (
-                        <li key={p.id}>{p.name} · {p.pos} {p.team}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
                 {positionPrimers.map((p) => (
                   <div className="card" key={p.pos}>
                     <h3>{p.pos}</h3>
@@ -240,34 +315,66 @@ export default function App() {
           <>
             <h2>Round-by-round plan</h2>
             <p className="lead">
-              Slot is unknown until 1:30 p.m. Denver. Click the range you landed in.
-              Hide the other two so you cannot follow the wrong script on a two-minute clock.
+              At 1:30 lock the exact pick, 1 through 10. That also locks Early / Mid / Late.
+              Names already marked Gone grey out on the script.
             </p>
             {planNotes.map((p) => (
               <p key={p}>{p}</p>
             ))}
+            <div className="kicker">Exact pick</div>
             <div className="slot-row">
-              {(['early', 'mid', 'late'] as Slot[]).map((s) => (
-                <button key={s} className={slot === s ? 'on' : ''} onClick={() => lockSlot(s)}>
-                  {s === 'early' ? 'Early · picks 1–3' : s === 'mid' ? 'Mid · picks 4–7' : 'Late · picks 8–10'}
+              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                <button key={n} className={pick === n ? 'on' : ''} onClick={() => lockPick(n)}>
+                  {n}
                 </button>
               ))}
             </div>
+            <div className="slot-row">
+              {(['early', 'mid', 'late'] as Slot[]).map((s) => (
+                <button key={s} className={slot === s && pick == null ? 'on' : slot === s ? 'on' : ''} onClick={() => lockBand(s)}>
+                  {s === 'early' ? 'Early · 1–3' : s === 'mid' ? 'Mid · 4–7' : 'Late · 8–10'}
+                </button>
+              ))}
+            </div>
+            {pick && (
+              <div className="card">
+                <div className="kicker">Your snake · pick {pick} · {slot}</div>
+                <div className="snake">
+                  <span>Rd</span>
+                  {myPicks.map((_, i) => <span key={i}>R{i + 1}</span>)}
+                  <span>You</span>
+                  {myPicks.map((n, i) => (
+                    <span key={n} className={i + 1 === round ? 'now' : undefined}>{n}</span>
+                  ))}
+                </div>
+                <p>Round {round} is overall pick {myPicks[round - 1]}. Then {waitAfter(pick, round)} picks until you are back.</p>
+              </div>
+            )}
             {script && (
               <div className="card">
                 <h3>{script.label}</h3>
                 <p>{script.picks}</p>
                 <p><strong>If the board forks:</strong> {script.fork}</p>
-                {script.rounds.map((r) => (
-                  <div className="round-card" key={r.round}>
-                    <div className="round-n">R{r.round}</div>
-                    <div>
-                      <p className="take">Take {r.take}</p>
-                      {r.backup && <p className="backup">If they are gone: {r.backup}</p>}
-                      {r.note && <p className="why">{r.note}</p>}
+                {script.rounds.map((r) => {
+                  const takeGone = primaryGone(r.take, taken)
+                  const backupGone = r.backup ? anyMentionGone(r.backup, taken) : false
+                  return (
+                    <div className={`round-card${takeGone && backupGone ? ' gone-line' : ''}`} key={r.round}>
+                      <div className="round-n">R{r.round}</div>
+                      <div>
+                        <p className="take">
+                          Take {r.take}{takeGone ? ' — GONE' : ''}
+                        </p>
+                        {r.backup && (
+                          <p className="backup">
+                            If they are gone: {r.backup}{backupGone ? ' — also gone' : ''}
+                          </p>
+                        )}
+                        {r.note && <p className="why">{r.note}</p>}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </>
@@ -277,8 +384,8 @@ export default function App() {
           <>
             <h2>Player board</h2>
             <p className="lead">
-              His ranks, not a national list. Type a name. <strong>Gone</strong> means someone in the room took them.
-              <strong> Mine</strong> means you did — that is what the clock uses.
+              <strong>Gone</strong> = the room took them (script and sleepers follow this).
+              <strong> Mine</strong> = you did. <strong>Queue</strong> = take him if he is there (max 5).
             </p>
             <input
               className="search"
@@ -308,13 +415,16 @@ export default function App() {
                     </div>
                     <span className={`call ${call.cls}`}>{call.label}</span>
                   </div>
-                  <div className="note">{p.note || 'No extra note — use the call and the ADP window.'}</div>
+                  <div className="note">{p.note}</div>
                   <div className="acts">
                     <button className={taken.has(p.id) ? 'gone-on' : ''} onClick={() => gone(p.id)}>
                       {taken.has(p.id) ? 'Undo gone' : 'Gone'}
                     </button>
                     <button className={mine.has(p.id) ? 'mine-on' : ''} onClick={() => minePick(p.id)}>
                       {mine.has(p.id) ? 'Drop from mine' : 'Mine'}
+                    </button>
+                    <button className={queue.includes(p.id) ? 'on' : ''} onClick={() => star(p.id)}>
+                      {queue.includes(p.id) ? 'In queue' : 'Queue'}
                     </button>
                   </div>
                 </div>
@@ -327,40 +437,28 @@ export default function App() {
           <>
             <h2>Sleepers for this 10-team PPR draft</h2>
             <p className="lead">
-              A sleeper here is someone ESPN is late on who can start for you in September.
-              Deep 12-team dart throws do not belong on this board.
+              Names marked Gone on the player board grey out here so you do not hunt a player who already went.
             </p>
             {sleeperHowTo.map((p) => (
               <p key={p}>{p}</p>
             ))}
-            <h3>Take these in their window</h3>
-            {sleeperCards.filter((s) => s.tier === 'board').map((s) => (
-              <div className="card" key={s.name}>
-                <div className="kicker">{s.pos} {s.team} · ESPN {s.espnAdp ?? '—'} · {s.window}</div>
-                <h3>{s.name}</h3>
-                <p>{s.why}</p>
-                <p><strong>How to draft:</strong> {s.howToDraft}</p>
-                <p className="kicker">{s.source}</p>
-              </div>
-            ))}
-            <h3>Middle rounds — FLEX and the tight-end wait</h3>
-            {sleeperCards.filter((s) => s.tier === 'middle').map((s) => (
-              <div className="card" key={s.name}>
-                <div className="kicker">{s.pos} {s.team} · ESPN {s.espnAdp ?? '—'} · {s.window}</div>
-                <h3>{s.name}</h3>
-                <p>{s.why}</p>
-                <p><strong>How to draft:</strong> {s.howToDraft}</p>
-                <p className="kicker">{s.source}</p>
-              </div>
-            ))}
-            <h3>Last-round darts</h3>
-            {sleeperCards.filter((s) => s.tier === 'dart').map((s) => (
-              <div className="card" key={s.name}>
-                <div className="kicker">{s.pos} {s.team} · ESPN {s.espnAdp ?? '—'} · {s.window}</div>
-                <h3>{s.name}</h3>
-                <p>{s.why}</p>
-                <p><strong>How to draft:</strong> {s.howToDraft}</p>
-                <p className="kicker">{s.source}</p>
+            {(['board', 'middle', 'dart'] as const).map((tier) => (
+              <div key={tier}>
+                <h3>
+                  {tier === 'board' ? 'Take these in their window' : tier === 'middle' ? 'Middle rounds — FLEX and the tight-end wait' : 'Last-round darts'}
+                </h3>
+                {sleeperCards.filter((s) => s.tier === tier).map((s) => (
+                  <div className={`card${anyMentionGone(s.name, taken) ? ' gone-line' : ''}`} key={s.name}>
+                    <div className="kicker">
+                      {s.pos} {s.team} · ESPN {s.espnAdp ?? '—'} · {s.window}
+                      {anyMentionGone(s.name, taken) ? ' · GONE' : ''}
+                    </div>
+                    <h3>{s.name}</h3>
+                    <p>{s.why}</p>
+                    <p><strong>How to draft:</strong> {s.howToDraft}</p>
+                    <p className="kicker">{s.source}</p>
+                  </div>
+                ))}
               </div>
             ))}
             <p className="kicker">{researchStamp}</p>
@@ -370,19 +468,19 @@ export default function App() {
         {page === 'edges' && (
           <>
             <h2>Where this board disagrees with ESPN</h2>
-            <p className="lead">These are the edges. Read the reason, not just the name.</p>
+            <p className="lead">These are the edges. Grey means you already marked them Gone.</p>
             <div className="grid-2">
               <div>
                 <h3>Take them if they fall</h3>
                 {sleepers.map((x) => (
-                  <div className="card edge" key={x.name}>
-                    <h3>{x.name}</h3>
+                  <div className={`card edge${anyMentionGone(x.name, taken) ? ' gone-line' : ''}`} key={x.name}>
+                    <h3>{x.name}{anyMentionGone(x.name, taken) ? ' · GONE' : ''}</h3>
                     <p>{x.why}</p>
                   </div>
                 ))}
                 <h3>ESPN is too late on these</h3>
                 {tooLate.map((x) => (
-                  <div className="card edge" key={x.name}>
+                  <div className={`card edge${anyMentionGone(x.name, taken) ? ' gone-line' : ''}`} key={x.name}>
                     <h3>{x.name} · ESPN {x.espn}</h3>
                     <p>{x.why}</p>
                   </div>
@@ -426,6 +524,7 @@ export default function App() {
               {handcuffs.map((h) => (
                 <p key={h.starterId + h.cuff}>
                   <strong>{h.starter}</strong> — {h.cuff}. {h.when}.
+                  {mine.has(h.starterId) ? ' You own this starter.' : ''}
                 </p>
               ))}
             </div>
@@ -440,6 +539,27 @@ export default function App() {
                 <h3>Dead — do not draft, do not IR</h3>
                 {irDead.map((x) => <p key={x}>{x}</p>)}
               </div>
+            </div>
+          </>
+        )}
+
+        {page === 'card' && (
+          <>
+            <h2>Printable clock card</h2>
+            <p className="lead">Put this on a second monitor or print it. Pre-rank the next two rounds before your pick.</p>
+            <button className="ghost" onClick={() => window.print()}>Print</button>
+            <div className="print-card">
+              <h3>{clockCard.title}</h3>
+              <p>{clockCard.league}</p>
+              <p><strong>RED</strong> — {clockCard.red}</p>
+              <p><strong>SMASH</strong> — {clockCard.smash}</p>
+              <ol>
+                {clockCard.steps.map((s) => <li key={s}>{s}</li>)}
+              </ol>
+              {clockCard.r1.map((s) => <p key={s}>{s}</p>)}
+              <p><strong>Bye nuke</strong> — {clockCard.byes}</p>
+              <p><strong>Do not</strong> — {clockCard.doNot}</p>
+              <p>{clockCard.footer}</p>
             </div>
           </>
         )}
