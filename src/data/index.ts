@@ -6,3 +6,10 @@ export { landscape } from './landscape'
 export { tooEarly, tooLate, fades, sleepers } from './lists'
 export { handcuffs, irReal, irDead, broncoRule } from './handcuffs'
 export { BYE_BY_TEAM, BYE_NOTES, BYE_NUKE } from './byes'
+export {
+  whyRobustRb,
+  leagueExplained,
+  r1Explained,
+  doNotExplained,
+  clockExplained,
+} from './briefing'
